@@ -167,21 +167,24 @@ async function processLogMessage(msg, channel) {
 /** Start listening to RabbitMQ */
 async function startRabbitMQ() {
   try {
-    const conn = await amqp.connect(process.env.RABBITMQ_URL);
-    const channel = await conn.createChannel();
+      const conn = await amqp.connect(process.env.RABBITMQ_URL);
+      const channel = await conn.createChannel();
 
-    const queue = process.env.INCIDENT_QUEUE || "incident_queue";
-    await channel.assertQueue(queue, { durable: true });
+      const queue = process.env.INCIDENT_QUEUE || "incident_queue";
+      await channel.assertQueue(queue, { durable: true });
 
-    console.log(`Listening on RabbitMQ queue: ${queue}`);
-    channel.consume(queue, async (msg) => {
-      await processLogMessage(msg, channel);
-      channel.ack(msg);
-    });
+      console.log(`📡 Listening on RabbitMQ queue: ${queue}`);
+
+      channel.consume(queue, async (msg) => {
+          console.log("✅ Received message from incident_queue:", msg.content.toString());
+          await processLogMessage(msg, channel);
+          channel.ack(msg);
+      });
   } catch (err) {
-    console.error("RabbitMQ Connection Error:", err);
+      console.error("❌ RabbitMQ Connection Error:", err);
   }
 }
+
 
 // Optional: A simple health endpoint
 app.get("/health", (_, res) => {

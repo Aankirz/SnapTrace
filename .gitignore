@@ -23,6 +23,9 @@ build/
 *.swp
 *.swo
 
+#test_scripts
+test_scripts/
+
 # OS-specific files
 .DS_Store
 Thumbs.db
