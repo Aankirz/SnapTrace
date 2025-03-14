@@ -17,11 +17,11 @@ const session = driver.session();
 async function processMessage(message, channel) {
     try {
         const logData = JSON.parse(message.content.toString());
-        console.log("Received Log:", logData);
+        console.log("🟢 Received Log:", logData);
 
         const { source_ip, destination_ip, protocol, source_port, destination_port } = logData;
 
-        // Step 1: Check if source already exists in Neo4j
+        // Check if the source IP already exists in Neo4j
         const result = await session.run(
             `MATCH (s:Source {ip: $source_ip}) RETURN s`,
             { source_ip }
@@ -30,37 +30,69 @@ async function processMessage(message, channel) {
         let aiAnalysis;
         if (result.records.length > 0) {
             console.log(`✅ Existing Threat Found in Neo4j: ${source_ip}`);
-            aiAnalysis = { threat_level: "known", description: "Previously identified threat." };
+            aiAnalysis = { classification: "known", description: "Previously identified threat.", recommended_actions: ["Monitor traffic"] };
         } else {
             console.log(`🚨 New Threat Detected: Sending to LLM API`);
 
-            // Step 2: Send Data to LLM
-            const response = await axios.post(process.env.LLM_API, logData);
-            aiAnalysis = response.data;
+            // **STEP 1: Format Log Data as Input for LLM API**
+            const formattedLogData = `
+            - Source IP: ${source_ip}
+            - Destination IP: ${destination_ip}
+            - Protocol: ${protocol}
+            - Source Port: ${source_port}
+            - Destination Port: ${destination_port}
+            - Packets: ${logData.packets}
+            - Bytes Transferred: ${logData.bytes_transferred}
+            - Flags: ${logData.flags.join(", ")}
+            - Duration: ${logData.duration} seconds
+            - Class: Unknown
+            `;
 
-            // Step 3: Store in Neo4j
+            // **STEP 2: Send Formatted Log to LLM API**
+            const response = await axios.post(process.env.LLM_API, { log_data: formattedLogData });
+            const rawOutput = response.data.response;
+
+            // ✅ **STEP 3: Parse LLM Output for Classification & Recommendations**
+            console.log("🔍 LLM Response:", rawOutput);
+
+            const classificationMatch = rawOutput.match(/### Classification:\s*(.*)/);
+            const classification = classificationMatch ? classificationMatch[1].trim() : "unknown";
+
+            const reasonMatch = rawOutput.match(/Here's the detailed analysis:\s*(.*)/s);
+            const reason = reasonMatch ? reasonMatch[1].trim() : "No details available.";
+
+            const recommendedActions = [];
+            const actionsMatch = rawOutput.match(/recommended security measures:\s*(.*)/s);
+            if (actionsMatch) {
+                recommendedActions.push(...actionsMatch[1].split("\n").map(action => action.trim()));
+            }
+
+            aiAnalysis = {
+                classification,
+                description: reason,
+                recommended_actions: recommendedActions.length ? recommendedActions : ["Monitor traffic"]
+            };
+
+            // ✅ **STEP 4: Store in Neo4j**
             await session.run(
-                `CREATE (s:Source {ip: $source_ip, threat_level: $threat_level, description: $desc})`,
+                `CREATE (s:Source {ip: $source_ip, threat_level: $classification, description: $description})`,
                 {
                     source_ip,
-                    threat_level: aiAnalysis.threat_level || "unknown",
-                    desc: aiAnalysis.description || "No details"
+                    classification: aiAnalysis.classification,
+                    description: aiAnalysis.description
                 }
             );
 
             console.log("✅ Stored in Neo4j:", aiAnalysis);
         }
 
-        // ✅ Step 4: Publish enriched data to `incident_queue`
+        // ✅ **STEP 5: Publish enriched threat data to `incident_queue`**
         const enrichedData = {
             source_ip,
             destination_ip,
             protocol,
-            classification: aiAnalysis.threat_level || "Unknown",
-            recommended_actions: [
-                "Monitor traffic",
-                "Enable deep packet inspection"
-            ]
+            classification: aiAnalysis.classification,
+            recommended_actions: aiAnalysis.recommended_actions
         };
 
         const incidentQueue = "incident_queue";
@@ -72,7 +104,6 @@ async function processMessage(message, channel) {
         console.error("❌ Error processing message:", error);
     }
 }
-
 
 async function startRabbitMQ() {
     try {
@@ -91,7 +122,6 @@ async function startRabbitMQ() {
         console.error("❌ RabbitMQ Connection Error:", error);
     }
 }
-
 
 app.listen(PORT, async () => {
     console.log(`Threat Detection Service running on port ${PORT}`);
