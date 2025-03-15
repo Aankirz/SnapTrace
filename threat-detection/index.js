@@ -1,14 +1,15 @@
-require("dotenv").config();
-const express = require("express");
-const amqp = require("amqplib");
-const neo4j = require("neo4j-driver");
-const axios = require("axios");
-const pLimit = require("p-limit").default; 
+import dotenv from 'dotenv';
+import express from 'express';
+import amqp from 'amqplib';
+import neo4j from 'neo4j-driver';
+import axios from 'axios';
+import pLimit from 'p-limit';
+
+dotenv.config();
 const limit = pLimit(1);
 
-
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 
 // Connect to Neo4j
 const driver = neo4j.driver(

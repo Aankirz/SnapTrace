@@ -17,7 +17,7 @@ export default function useLogData(refreshInterval = 30000) {
     setError(null);
     
     try {
-      const res = await fetch("http://localhost:4000/api/get-logs");
+      const res = await fetch("https://snaptrace.onrender.com/api/get-logs");
       
       if (!res.ok) {
         throw new Error(`Server responded with status: ${res.status}`);
