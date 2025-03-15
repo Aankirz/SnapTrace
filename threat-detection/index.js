@@ -94,12 +94,31 @@ async function processMessage(message, channel) {
                 // ✅ **STEP 5: Store in Neo4j**
                 console.log(`📌 Storing in Neo4j: ${source_ip}, Classification: ${classificationResult}`);
 
+                // ✅ Store in Neo4j with Relationships
                 await session.run(
-                    `MERGE (s:Source {ip: $source_ip})
-                    ON CREATE SET s.threat_level = $classification, s.description = $description
-                    RETURN s`,
-                    { source_ip, classification: aiAnalysis.classification, description: aiAnalysis.description }
+                    `
+                    MERGE (src:Source {ip: $source_ip})
+                    ON CREATE SET src.threat_level = $classification, src.description = $description
+                    ON MATCH SET src.threat_level = CASE 
+                        WHEN src.threat_level = 'Malicious' THEN 'Malicious'  // Keep Malicious as highest severity
+                        WHEN src.threat_level = 'Suspicious' AND $classification = 'Malicious' THEN 'Malicious'
+                        ELSE $classification 
+                    END
+
+                    MERGE (dst:Destination {ip: $destination_ip})
+                    ON CREATE SET dst.threat_level = $classification, dst.description = $description
+                    ON MATCH SET dst.threat_level = CASE 
+                        WHEN dst.threat_level = 'Malicious' THEN 'Malicious'  // Promote Suspicious to Malicious if necessary
+                        WHEN dst.threat_level = 'Suspicious' AND $classification = 'Malicious' THEN 'Malicious'
+                        ELSE $classification
+                    END
+
+                    MERGE (src)-[r:SENDS_TO]->(dst)
+                    ON CREATE SET r.packets = $packets, r.bytes_transferred = $bytes_transferred
+                    `,
+                    { source_ip, destination_ip, classification: aiAnalysis.classification, description: aiAnalysis.description, packets, bytes_transferred }
                 );
+
             }
 
             // ✅ **STEP 6: Publish Enriched Threat Data to `incident_queue`**
@@ -149,7 +168,7 @@ async function startRabbitMQ() {
         const conn = await amqp.connect(process.env.RABBITMQ_URL);
         const channel = await conn.createChannel();
 
-        const queue = "snaplog";
+        const queue = "snap_logs";
         await channel.assertQueue(queue, { durable: true });
 
         console.log(`📡 Waiting for messages in ${queue}`);
