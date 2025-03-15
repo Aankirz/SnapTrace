@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cybersecurity theme colors */
+  --background: #0a0e17;
+  --foreground: #e6edf3;
+  --primary: #00e5ff;
+  --primary-dark: #00b8cc;
+  --secondary: #ff3e5e;
+  --accent: #7928ca;
+  --success: #10b981;
+  --warning: #fbbf24;
+  --danger: #ef4444;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --gray-950: #0d1117;
 }
 
 @theme inline {
@@ -14,13 +33,131 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0a0e17;
+    --foreground: #e6edf3;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar for cybersecurity theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-700);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-dark);
+}
+
+/* Glowing effect for important elements */
+.glow {
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+}
+
+.glow-text {
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+}
+
+/* Animated gradient background for special sections */
+.cyber-gradient {
+  background: linear-gradient(
+    -45deg,
+    var(--gray-950),
+    var(--gray-900),
+    var(--gray-800),
+    var(--gray-900)
+  );
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Hexagon grid pattern for backgrounds */
+.hex-pattern {
+  background-color: var(--gray-950);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%231f2937' fill-opacity='0.4' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Custom toast styling */
+.cyber-toast {
+  border-radius: 6px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.875rem !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  max-width: 350px !important;
+}
+
+/* Toast animations */
+@keyframes toast-slide-in {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Apply animations to toasts */
+.cyber-toast[data-state="entering"] {
+  animation: toast-slide-in 0.3s ease-out forwards;
+}
+
+.cyber-toast[data-state="leaving"] {
+  animation: toast-slide-out 0.3s ease-in forwards;
+}
+
+/* Pulse animation for critical toasts */
+@keyframes pulse-border {
+  0% {
+    border-color: var(--danger);
+  }
+  50% {
+    border-color: var(--secondary);
+  }
+  100% {
+    border-color: var(--danger);
+  }
+}
+
+.cyber-toast.critical {
+  animation: pulse-border 2s infinite;
 }

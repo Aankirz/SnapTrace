@@ -13,22 +13,46 @@ import useLogData from './hooks/useLogData';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { logs, loading, fetchLogs } = useLogData();
-
+  const { logs, loading, error, fetchLogs } = useLogData();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   return (
-    <div className="flex min-h-screen bg-gray-900 text-gray-100 font-sans">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-gray-100 font-sans">
       {/* Navigation Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+      />
 
       {/* Main Content Area */}
-      <main className="flex-grow ml-64 p-6">
+      <main className={`flex-grow transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'} p-6`}>
         {/* Header with status indicators */}
-        <Header fetchLogs={fetchLogs} loading={loading} />
+        <Header 
+          fetchLogs={fetchLogs} 
+          loading={loading} 
+          toggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
 
-        {/* Render the active tab content */}
-        {activeTab === "dashboard" && <Dashboard logs={logs} />}
-        {activeTab === "logs" && <NetworkLogs logs={logs} />}
-        {activeTab === "setup" && <SetupGuide />}
+        {/* Animated transition between tabs */}
+        <div className="mt-6 transition-all duration-300 ease-in-out">
+          {activeTab === "dashboard" && <Dashboard logs={logs} />}
+          {activeTab === "logs" && <NetworkLogs logs={logs} />}
+          {activeTab === "setup" && <SetupGuide />}
+        </div>
+        
+        {/* Footer */}
+        <footer className="mt-12 pt-4 border-t border-gray-800 text-gray-400 text-sm">
+          <div className="flex justify-between items-center">
+            <p>© 2023 SnapTrace Security</p>
+            <div className="flex space-x-4">
+              <span>Documentation</span>
+              <span>Support</span>
+              <span>Privacy Policy</span>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
