@@ -169,7 +169,7 @@ async function startRabbitMQ() {
         const conn = await amqp.connect(process.env.RABBITMQ_URL);
         const channel = await conn.createChannel();
 
-        const queue = "snap_logs";
+        const queue = "snaplog";
         await channel.assertQueue(queue, { durable: true });
 
         console.log(`📡 Waiting for messages in ${queue}`);
