@@ -10,6 +10,8 @@ const DemoTest = () => {
   const [logs, setLogs] = useState([]);
   const [transformedLogs, setTransformedLogs] = useState([]);
   const [apiResponse, setApiResponse] = useState(null);
+  const [successCount, setSuccessCount] = useState(0);
+  const [failCount, setFailCount] = useState(0);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -20,6 +22,8 @@ const DemoTest = () => {
       setLogs([]);
       setTransformedLogs([]);
       setApiResponse(null);
+      setSuccessCount(0);
+      setFailCount(0);
     }
   };
 
@@ -55,11 +59,11 @@ const DemoTest = () => {
       
       // Create a properly formatted object
       return {
-        'Source IP': item['Src IP Addr'] || '',
-        'Destination IP': item['Dst IP Addr'] || '',
-        'Protocol': (item['Proto'] || '').trim(),
-        'Source Port': item['Src Pt'] || '',
-        'Destination Port': item['Dst Pt'] || '',
+        'Source IP': item['Src IP Addr'] || '192.168.1.1', // Default IP if empty
+        'Destination IP': item['Dst IP Addr'] || '10.0.0.1', // Default IP if empty
+        'Protocol': (item['Proto'] || 'TCP').trim(),
+        'Source Port': item['Src Pt'] || '0',
+        'Destination Port': item['Dst Pt'] || '0',
         'Packets': packets,
         'Bytes Transferred': bytesTransferred,
         'Flags': item['Flags'] || '',
@@ -69,21 +73,16 @@ const DemoTest = () => {
     });
   };
 
-  const sendBatchToAPI = async (batch) => {
+  const sendLogToAPI = async (log) => {
     try {
-      // Create a session object with logs array as expected by the API
-      const sessionData = {
-        logs: batch
-      };
-      
-      console.log('Sending data to API:', JSON.stringify(sessionData, null, 2));
+      console.log('Sending data to API:', JSON.stringify(log, null, 2));
       
       const response = await fetch('https://snaptrace.onrender.com/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(sessionData),
+        body: JSON.stringify(log),
       });
 
       const responseText = await response.text();
@@ -103,7 +102,7 @@ const DemoTest = () => {
       setApiResponse(responseData);
       return responseData;
     } catch (error) {
-      console.error('Error sending batch:', error);
+      console.error('Error sending log:', error);
       throw error;
     }
   };
@@ -117,6 +116,8 @@ const DemoTest = () => {
     setIsUploading(true);
     setUploadStatus('Processing CSV file...');
     setApiResponse(null);
+    setSuccessCount(0);
+    setFailCount(0);
     
     try {
       // Parse CSV to JSON
@@ -131,23 +132,32 @@ const DemoTest = () => {
       const limitedData = formattedData.slice(0, 30);
       setUploadStatus(`Parsed ${limitedData.length} logs (max 30). Sending to API...`);
       
-      // Send in batches of 5
-      const batchSize = 5;
-      const totalBatches = Math.ceil(limitedData.length / batchSize);
+      // Send logs one by one
+      let successCount = 0;
+      let failCount = 0;
       
-      for (let i = 0; i < limitedData.length; i += batchSize) {
-        const batch = limitedData.slice(i, i + batchSize);
-        const currentBatch = Math.floor(i / batchSize) + 1;
+      for (let i = 0; i < limitedData.length; i++) {
+        const log = limitedData[i];
+        const currentLog = i + 1;
         
-        setUploadStatus(`Sending batch ${currentBatch}/${totalBatches}...`);
-        await sendBatchToAPI(batch);
+        setUploadStatus(`Sending log ${currentLog}/${limitedData.length}...`);
+        
+        try {
+          await sendLogToAPI(log);
+          successCount++;
+          setSuccessCount(successCount);
+        } catch (error) {
+          console.error(`Failed to send log ${currentLog}:`, error);
+          failCount++;
+          setFailCount(failCount);
+        }
         
         // Update progress
-        const newProgress = Math.min(100, Math.round((currentBatch / totalBatches) * 100));
+        const newProgress = Math.min(100, Math.round(((i + 1) / limitedData.length) * 100));
         setProgress(newProgress);
       }
       
-      setUploadStatus('Upload complete! All logs have been processed.');
+      setUploadStatus(`Upload complete! ${successCount} logs processed successfully, ${failCount} failed.`);
     } catch (error) {
       console.error('Upload failed:', error);
       setUploadStatus(`Upload failed: ${error.message}`);
@@ -162,7 +172,7 @@ const DemoTest = () => {
       
       <div className="mb-8">
         <p className="text-gray-300 mb-4">
-          Upload a CSV file containing network logs. The system will convert it to JSON and send it to the API in batches of 5 logs (maximum 30 logs).
+          Upload a CSV file containing network logs. The system will convert it to JSON and send it to the API (maximum 30 logs).
         </p>
         
         <div className="flex flex-col space-y-4">
@@ -205,12 +215,18 @@ const DemoTest = () => {
               ></div>
             </div>
           )}
+          {(successCount > 0 || failCount > 0) && (
+            <div className="mt-2 flex space-x-4">
+              <span className="text-green-400">Success: {successCount}</span>
+              <span className="text-red-400">Failed: {failCount}</span>
+            </div>
+          )}
         </div>
       )}
       
       {apiResponse && (
         <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-3 text-cyan-400">API Response</h3>
+          <h3 className="text-xl font-semibold mb-3 text-cyan-400">Latest API Response</h3>
           <div className="bg-gray-800 p-4 rounded-lg overflow-auto">
             <pre className="text-gray-300 text-sm">
               {JSON.stringify(apiResponse, null, 2)}
