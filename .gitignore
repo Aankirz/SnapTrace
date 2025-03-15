@@ -1,6 +1,8 @@
 # Node modules
+# Ignore all node_modules directories
 node_modules/
 **/node_modules/
+
 
 # Logs
 npm-debug.log*
