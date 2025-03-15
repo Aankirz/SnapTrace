@@ -1,8 +1,17 @@
 import React from 'react';
 import useSecurityData from '../hooks/useSecurityData';
+import useGraphData from '../hooks/useGraphData';
+import NetworkGraph from './NetworkGraph';
 
 const ThreatDetection = () => {
-  const { securityData, loading, error, fetchSecurityData } = useSecurityData();
+  const { securityData, loading: securityLoading, error: securityError, fetchSecurityData } = useSecurityData();
+  const { graphData, loading: graphLoading, error: graphError, fetchGraphData } = useGraphData();
+
+  // Combined loading state
+  const loading = securityLoading || graphLoading;
+  
+  // Combined error state (prioritize security data error)
+  const error = securityError || graphError;
 
   if (loading) {
     return (
@@ -19,7 +28,10 @@ const ThreatDetection = () => {
         <p>{error}</p>
         <p className="mt-2">Please check your backend connection and try again.</p>
         <button 
-          onClick={fetchSecurityData} 
+          onClick={() => {
+            fetchSecurityData();
+            fetchGraphData();
+          }} 
           className="mt-4 px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md transition-colors"
         >
           Retry
@@ -49,12 +61,18 @@ const ThreatDetection = () => {
           Threat Detection Analysis
         </h2>
         <button 
-          onClick={fetchSecurityData}
+          onClick={() => {
+            fetchSecurityData();
+            fetchGraphData();
+          }}
           className="px-4 py-2 bg-cyan-700 hover:bg-cyan-600 rounded-md transition-colors flex items-center"
         >
           <i className="fas fa-sync-alt mr-2"></i> Refresh
         </button>
       </div>
+
+      {/* Network Graph Visualization */}
+      <NetworkGraph graphData={graphData} />
 
       {/* Security Analysis Card */}
       <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700">
