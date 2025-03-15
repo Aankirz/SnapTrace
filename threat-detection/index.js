@@ -16,12 +16,19 @@ const session = driver.session();
 
 async function processMessage(message, channel) {
     try {
-        const logData = JSON.parse(message.content.toString());
-        console.log("🟢 Received Log:", logData);
+        const rawLog = JSON.parse(message.content.toString());
+        console.log("🟢 Received Raw Log:", rawLog);
 
-        const { source_ip, destination_ip, protocol, source_port, destination_port } = logData;
+        // **STEP 1: Convert log to the required format**
+        const logData = transformLogFormat(rawLog);
+        console.log("🔄 Converted Log Format:", logData);
 
-        // Check if the source IP already exists in Neo4j
+        const { 
+            source_ip, destination_ip, protocol, source_port, destination_port,
+            packets, bytes_transferred, flags, duration, classification, device_info, received_at 
+        } = logData;
+
+        // **Check if the source IP already exists in Neo4j**
         const result = await session.run(
             `MATCH (s:Source {ip: $source_ip}) RETURN s`,
             { source_ip }
@@ -34,75 +41,102 @@ async function processMessage(message, channel) {
         } else {
             console.log(`🚨 New Threat Detected: Sending to LLM API`);
 
-            // **STEP 1: Format Log Data as Input for LLM API**
+            // **STEP 2: Format Log Data for LLM API**
             const formattedLogData = `
             - Source IP: ${source_ip}
             - Destination IP: ${destination_ip}
             - Protocol: ${protocol}
             - Source Port: ${source_port}
             - Destination Port: ${destination_port}
-            - Packets: ${logData.packets}
-            - Bytes Transferred: ${logData.bytes_transferred}
-            - Flags: ${logData.flags.join(", ")}
-            - Duration: ${logData.duration} seconds
-            - Class: Unknown
+            - Packets: ${packets}
+            - Bytes Transferred: ${bytes_transferred}
+            - Flags: ${flags.length > 0 ? flags.join(", ") : "None"}
+            - Duration: ${duration} seconds
+            - Class: ${classification}
+            - Device Info:
+                - Hostname: ${device_info.hostname}
+                - OS: ${device_info.os}
+                - Agent Version: ${device_info.agent_version}
             `;
 
-            // **STEP 2: Send Formatted Log to LLM API**
+            // **STEP 3: Send Data to LLM API**
             const response = await axios.post(process.env.LLM_API, { log_data: formattedLogData });
             const rawOutput = response.data.response;
 
-            // ✅ **STEP 3: Parse LLM Output for Classification & Recommendations**
+            // ✅ **STEP 4: Parse LLM Output**
             console.log("🔍 LLM Response:", rawOutput);
 
             const classificationMatch = rawOutput.match(/### Classification:\s*(.*)/);
-            const classification = classificationMatch ? classificationMatch[1].trim() : "unknown";
+            const classificationResult = classificationMatch ? classificationMatch[1].trim() : "unknown";
 
-            const reasonMatch = rawOutput.match(/Here's the detailed analysis:\s*(.*)/s);
-            const reason = reasonMatch ? reasonMatch[1].trim() : "No details available.";
-
+            // **Extract recommended actions**
             const recommendedActions = [];
             const actionsMatch = rawOutput.match(/recommended security measures:\s*(.*)/s);
             if (actionsMatch) {
                 recommendedActions.push(...actionsMatch[1].split("\n").map(action => action.trim()));
             }
 
+            // Ensure recommended actions are not empty
+            if (recommendedActions.length === 0) {
+                recommendedActions.push("Monitor traffic"); // Fallback in case LLM fails
+            }
+
             aiAnalysis = {
-                classification,
-                description: reason,
-                recommended_actions: recommendedActions.length ? recommendedActions : ["Monitor traffic"]
+                classification: classificationResult,
+                description: `Analyzed by LLM: ${classificationResult}`,
+                recommended_actions: recommendedActions
             };
 
-            // ✅ **STEP 4: Store in Neo4j**
-            await session.run(
-                `CREATE (s:Source {ip: $source_ip, threat_level: $classification, description: $description})`,
-                {
-                    source_ip,
-                    classification: aiAnalysis.classification,
-                    description: aiAnalysis.description
-                }
-            );
+            // ✅ **STEP 5: Store in Neo4j**
+            console.log(`📌 Storing in Neo4j: ${source_ip}, Classification: ${classificationResult}`);
 
-            console.log("✅ Stored in Neo4j:", aiAnalysis);
+            await session.run(
+                `MERGE (s:Source {ip: $source_ip})
+                 ON CREATE SET s.threat_level = $classification, s.description = $description
+                 RETURN s`,
+                { source_ip, classification: aiAnalysis.classification, description: aiAnalysis.description }
+            );
         }
 
-        // ✅ **STEP 5: Publish enriched threat data to `incident_queue`**
-        const enrichedData = {
-            source_ip,
-            destination_ip,
-            protocol,
-            classification: aiAnalysis.classification,
-            recommended_actions: aiAnalysis.recommended_actions
+        // ✅ **STEP 6: Publish Enriched Threat Data to `incident_queue`**
+        const enrichedData = { 
+            source_ip, 
+            destination_ip, 
+            protocol, 
+            classification: aiAnalysis.classification, 
+            recommended_actions: aiAnalysis.recommended_actions 
         };
 
-        const incidentQueue = "incident_queue";
-        await channel.assertQueue(incidentQueue, { durable: true });
-        channel.sendToQueue(incidentQueue, Buffer.from(JSON.stringify(enrichedData)));
+        await channel.assertQueue("incident_queue", { durable: true });
+        channel.sendToQueue("incident_queue", Buffer.from(JSON.stringify(enrichedData)));
 
-        console.log(`✅ Sent enriched data to ${incidentQueue}:`, enrichedData);
+        console.log(`✅ Sent enriched data to incident_queue:`, enrichedData);
     } catch (error) {
         console.error("❌ Error processing message:", error);
     }
+}
+
+function transformLogFormat(rawLog) {
+    return {
+        source_ip: rawLog["Source IP"] || "Unknown",
+        destination_ip: rawLog["Destination IP"] || "Unknown",
+        protocol: rawLog["Protocol"] || "Unknown",
+        source_port: Number(rawLog["Source Port"]) || 0,
+        destination_port: Number(rawLog["Destination Port"]) || 0,
+        packets: Number(rawLog["Packets"]) || 0,
+        bytes_transferred: rawLog["Bytes Transferred"] || "0.0M",
+        flags: rawLog["Flags"] ? rawLog["Flags"].split(",") : [],
+        duration: Number(rawLog["Duration"]) || 0,
+        classification: rawLog["Class"] || "Unknown",
+        device_info: rawLog["device_info"] || {
+            device_id: "Unknown",
+            hostname: "Unknown",
+            ip_address: "Unknown",
+            os: "Unknown",
+            agent_version: "Unknown"
+        },
+        received_at: rawLog["received_at"] || new Date().toISOString()
+    };
 }
 
 async function startRabbitMQ() {
