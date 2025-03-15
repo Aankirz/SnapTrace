@@ -12,6 +12,7 @@ const DemoTest = () => {
   const [apiResponse, setApiResponse] = useState(null);
   const [successCount, setSuccessCount] = useState(0);
   const [failCount, setFailCount] = useState(0);
+  const [errorDetails, setErrorDetails] = useState(null);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -24,6 +25,7 @@ const DemoTest = () => {
       setApiResponse(null);
       setSuccessCount(0);
       setFailCount(0);
+      setErrorDetails(null);
     }
   };
 
@@ -75,15 +77,26 @@ const DemoTest = () => {
 
   const sendLogToAPI = async (log) => {
     try {
-      console.log('Sending data to API:', JSON.stringify(log, null, 2));
+      // Wrap the log in the expected format with a sessions array
+      const formattedData = {
+        device_info: {
+          app_version: "1.0.0",
+          device_type: "Demo Test",
+          os_version: "Web Browser"
+        },
+        timestamp: new Date().toISOString(),
+        sessions: [log]
+      };
       
-      const response = await fetch('https://snaptrace.onrender.com/api/sessions', {
+      console.log('Sending data to API:', JSON.stringify(formattedData, null, 2));
+      
+      const response = await fetchWithTimeout('https://snaptrace.onrender.com/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(log),
-      });
+        body: JSON.stringify(formattedData),
+      }, 15000); // 15 second timeout
 
       const responseText = await response.text();
       console.log('API Response:', responseText);
@@ -96,6 +109,7 @@ const DemoTest = () => {
       try {
         responseData = JSON.parse(responseText);
       } catch (e) {
+        console.warn('Could not parse API response as JSON:', responseText);
         responseData = { message: responseText };
       }
       
@@ -103,7 +117,110 @@ const DemoTest = () => {
       return responseData;
     } catch (error) {
       console.error('Error sending log:', error);
+      // Log more details about the error
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+      } else if (error.request) {
+        console.error('No response received. Request details:', error.request);
+      }
+      
+      setErrorDetails({
+        message: error.message,
+        type: 'Individual Log Upload Error',
+        time: new Date().toISOString(),
+        logData: JSON.stringify(log).substring(0, 200) + '...' // First 200 chars of the log
+      });
+      
       throw error;
+    }
+  };
+
+  const sendBatchToAPI = async (logs) => {
+    try {
+      // Wrap all logs in the expected format with a sessions array
+      const formattedData = {
+        device_info: {
+          app_version: "1.0.0",
+          device_type: "Demo Test",
+          os_version: "Web Browser"
+        },
+        timestamp: new Date().toISOString(),
+        sessions: logs
+      };
+      
+      console.log(`Sending batch of ${logs.length} logs to API`);
+      
+      const response = await fetchWithTimeout('https://snaptrace.onrender.com/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedData),
+      }, 30000); // 30 second timeout for batch
+
+      const responseText = await response.text();
+      console.log('API Response:', responseText);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} - ${responseText}`);
+      }
+
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.warn('Could not parse API response as JSON:', responseText);
+        responseData = { message: responseText };
+      }
+      
+      setApiResponse(responseData);
+      return responseData;
+    } catch (error) {
+      console.error('Error sending batch:', error);
+      setErrorDetails({
+        message: error.message,
+        type: 'Batch Upload Error',
+        time: new Date().toISOString()
+      });
+      throw error;
+    }
+  };
+
+  // Helper function to add timeout to fetch
+  const fetchWithTimeout = async (url, options, timeout = 30000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    
+    clearTimeout(id);
+    return response;
+  };
+
+  const checkAPIConnection = async () => {
+    try {
+      // Simple ping to check if the API is reachable
+      const response = await fetchWithTimeout('https://snaptrace.onrender.com/api/get-logs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }, 10000); // 10 second timeout
+      
+      if (response.ok) {
+        console.log('API connection successful');
+        return true;
+      } else {
+        console.error('API connection failed with status:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('API connection check failed:', error);
+      return false;
     }
   };
 
@@ -114,6 +231,16 @@ const DemoTest = () => {
     }
 
     setIsUploading(true);
+    setUploadStatus('Checking API connection...');
+    
+    // Check API connection first
+    const isConnected = await checkAPIConnection();
+    if (!isConnected) {
+      setUploadStatus('Cannot connect to API. Please try again later.');
+      setIsUploading(false);
+      return;
+    }
+    
     setUploadStatus('Processing CSV file...');
     setApiResponse(null);
     setSuccessCount(0);
@@ -132,35 +259,52 @@ const DemoTest = () => {
       const limitedData = formattedData.slice(0, 30);
       setUploadStatus(`Parsed ${limitedData.length} logs (max 30). Sending to API...`);
       
-      // Send logs one by one
-      let successCount = 0;
-      let failCount = 0;
-      
-      for (let i = 0; i < limitedData.length; i++) {
-        const log = limitedData[i];
-        const currentLog = i + 1;
+      // Try batch upload first
+      try {
+        setUploadStatus(`Sending all ${limitedData.length} logs as a batch...`);
+        await sendBatchToAPI(limitedData);
+        setSuccessCount(limitedData.length);
+        setProgress(100);
+      } catch (batchError) {
+        console.error('Batch upload failed, falling back to individual uploads:', batchError);
+        setUploadStatus('Batch upload failed. Trying individual uploads...');
         
-        setUploadStatus(`Sending log ${currentLog}/${limitedData.length}...`);
+        // Fall back to individual uploads if batch fails
+        let successCount = 0;
+        let failCount = 0;
         
-        try {
-          await sendLogToAPI(log);
-          successCount++;
-          setSuccessCount(successCount);
-        } catch (error) {
-          console.error(`Failed to send log ${currentLog}:`, error);
-          failCount++;
-          setFailCount(failCount);
+        for (let i = 0; i < limitedData.length; i++) {
+          const log = limitedData[i];
+          const currentLog = i + 1;
+          
+          setUploadStatus(`Sending log ${currentLog}/${limitedData.length}...`);
+          
+          try {
+            await sendLogToAPI(log);
+            successCount++;
+            setSuccessCount(successCount);
+          } catch (error) {
+            console.error(`Failed to send log ${currentLog}:`, error);
+            failCount++;
+            setFailCount(failCount);
+          }
+          
+          // Update progress
+          const newProgress = Math.min(100, Math.round(((i + 1) / limitedData.length) * 100));
+          setProgress(newProgress);
         }
-        
-        // Update progress
-        const newProgress = Math.min(100, Math.round(((i + 1) / limitedData.length) * 100));
-        setProgress(newProgress);
       }
       
       setUploadStatus(`Upload complete! ${successCount} logs processed successfully, ${failCount} failed.`);
     } catch (error) {
       console.error('Upload failed:', error);
       setUploadStatus(`Upload failed: ${error.message}`);
+      setErrorDetails({
+        message: error.message,
+        type: 'General Upload Error',
+        time: new Date().toISOString(),
+        stack: error.stack
+      });
     } finally {
       setIsUploading(false);
     }
@@ -231,6 +375,29 @@ const DemoTest = () => {
             <pre className="text-gray-300 text-sm">
               {JSON.stringify(apiResponse, null, 2)}
             </pre>
+          </div>
+        </div>
+      )}
+      
+      {errorDetails && (
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-3 text-red-400">Error Details</h3>
+          <div className="bg-gray-800 p-4 rounded-lg overflow-auto border border-red-500">
+            <div className="text-red-400 mb-2">Type: {errorDetails.type}</div>
+            <div className="text-red-400 mb-2">Time: {errorDetails.time}</div>
+            <div className="text-red-400 mb-2">Message: {errorDetails.message}</div>
+            {errorDetails.logData && (
+              <div className="mt-2">
+                <div className="text-gray-400 mb-1">Problematic Log Data:</div>
+                <pre className="text-gray-300 text-sm">{errorDetails.logData}</pre>
+              </div>
+            )}
+            {errorDetails.stack && (
+              <div className="mt-2">
+                <div className="text-gray-400 mb-1">Stack Trace:</div>
+                <pre className="text-gray-300 text-sm">{errorDetails.stack}</pre>
+              </div>
+            )}
           </div>
         </div>
       )}
