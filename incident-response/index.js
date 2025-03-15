@@ -6,7 +6,24 @@ const neo4j = require("neo4j-driver");
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
+
+// Store the latest response for API access
+let latestSecurityResponse = {
+  "LLM Security Analysis": {
+    analysis: {
+      source_ip: "",
+      destination_ip: "",
+      protocol: "",
+      classification: "No data yet",
+      recommended_actions: ["Waiting for data"]
+    }
+  },
+  "Neo4j Graph Insights": {
+    "Critical Nodes": [],
+    "Shortest Attack Paths": []
+  }
+};
 
 // 1. Connect to Neo4j
 const driver = neo4j.driver(
@@ -16,7 +33,7 @@ const driver = neo4j.driver(
 const session = driver.session();
 
 /**
- * Example: Calculate a “risk score” using a basic heuristic.
+ * Example: Calculate a "risk score" using a basic heuristic.
  * You could improve this with a real ML model, or MITRE ATT&CK-based logic.
  */
 function calculateRiskScore(log) {
@@ -148,6 +165,9 @@ async function processLogMessage(msg, channel) {
       }
     };
 
+    // Store the latest response for API access
+    latestSecurityResponse = finalResponse;
+
     // 5. Send this JSON to the next queue or back to microservice 2
     const responseQueue = process.env.RESPONSE_QUEUE || "security_responses";
     await channel.assertQueue(responseQueue, { durable: true });
@@ -234,6 +254,16 @@ app.get("/graph", async (req, res) => {
 // Optional: A simple health endpoint
 app.get("/health", (_, res) => {
   res.json({ status: "ok" });
+});
+
+// New endpoint to get the latest security analysis for the frontend
+app.get("/api/security-analysis", (req, res) => {
+  // Add CORS headers if needed
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  
+  // Return the latest security response
+  res.json(latestSecurityResponse);
 });
 
 app.listen(PORT, () => {

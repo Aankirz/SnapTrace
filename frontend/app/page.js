@@ -7,6 +7,7 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import NetworkLogs from './components/NetworkLogs';
 import SetupGuide from './components/SetupGuide';
+import ThreatDetection from './components/ThreatDetection';
 
 // Import custom hook
 import useLogData from './hooks/useLogData';
@@ -39,13 +40,14 @@ export default function Home() {
         <div className="mt-6 transition-all duration-300 ease-in-out">
           {activeTab === "dashboard" && <Dashboard logs={logs} />}
           {activeTab === "logs" && <NetworkLogs logs={logs} />}
+          {activeTab === "threats" && <ThreatDetection />}
           {activeTab === "setup" && <SetupGuide />}
         </div>
         
         {/* Footer */}
         <footer className="mt-12 pt-4 border-t border-gray-800 text-gray-400 text-sm">
           <div className="flex justify-between items-center">
-            <p>© 2023 SnapTrace Security</p>
+            <p>© 2025 SnapTrace Security</p>
             <div className="flex space-x-4">
               <span>Documentation</span>
               <span>Support</span>
