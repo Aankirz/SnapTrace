@@ -9,6 +9,7 @@ const DemoTest = () => {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState([]);
   const [transformedLogs, setTransformedLogs] = useState([]);
+  const [apiResponse, setApiResponse] = useState(null);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -18,6 +19,7 @@ const DemoTest = () => {
       setProgress(0);
       setLogs([]);
       setTransformedLogs([]);
+      setApiResponse(null);
     }
   };
 
@@ -56,19 +58,37 @@ const DemoTest = () => {
 
   const sendBatchToAPI = async (batch) => {
     try {
+      // Create a session object with logs array as expected by the API
+      const sessionData = {
+        logs: batch
+      };
+      
+      console.log('Sending data to API:', JSON.stringify(sessionData, null, 2));
+      
       const response = await fetch('https://snaptrace.onrender.com/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(batch),
+        body: JSON.stringify(sessionData),
       });
 
+      const responseText = await response.text();
+      console.log('API Response:', responseText);
+      
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`API error: ${response.status} - ${responseText}`);
       }
 
-      return await response.json();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        responseData = { message: responseText };
+      }
+      
+      setApiResponse(responseData);
+      return responseData;
     } catch (error) {
       console.error('Error sending batch:', error);
       throw error;
@@ -83,6 +103,7 @@ const DemoTest = () => {
 
     setIsUploading(true);
     setUploadStatus('Processing CSV file...');
+    setApiResponse(null);
     
     try {
       // Parse CSV to JSON
@@ -171,6 +192,17 @@ const DemoTest = () => {
               ></div>
             </div>
           )}
+        </div>
+      )}
+      
+      {apiResponse && (
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-3 text-cyan-400">API Response</h3>
+          <div className="bg-gray-800 p-4 rounded-lg overflow-auto">
+            <pre className="text-gray-300 text-sm">
+              {JSON.stringify(apiResponse, null, 2)}
+            </pre>
+          </div>
         </div>
       )}
       
