@@ -14,6 +14,7 @@
     "axios": "^1.8.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "neo4j-driver": "^5.28.1"
+    "neo4j-driver": "^5.28.1",
+    "p-limit": "^6.2.0"
   }
 }
