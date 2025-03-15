@@ -5,6 +5,7 @@ const NetworkLogs = ({ logs }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProtocol, setFilterProtocol] = useState('');
   const [prevFilteredCount, setPrevFilteredCount] = useState(0);
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
   
   // Filter logs based on search term and protocol filter
   const filteredLogs = logs.filter(log => {
@@ -72,6 +73,12 @@ const NetworkLogs = ({ logs }) => {
     showSuccessToast(`IP ${ip} added to blocklist`);
   };
   
+  // Toggle sort order
+  const toggleSortOrder = () => {
+    setSortNewestFirst(!sortNewestFirst);
+    showInfoToast(`Showing ${!sortNewestFirst ? 'newest' : 'oldest'} logs first`);
+  };
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -110,6 +117,19 @@ const NetworkLogs = ({ logs }) => {
         </div>
         
         <button 
+          className="bg-gray-900 hover:bg-gray-800 text-gray-300 border border-gray-800 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 sm:w-auto"
+          onClick={toggleSortOrder}
+          title={`Sort by ${sortNewestFirst ? 'oldest' : 'newest'} first`}
+        >
+          <div className="flex items-center">
+            <i className="fas fa-clock text-cyan-400 mr-1.5"></i>
+            <span className="hidden sm:inline">Sort:</span>
+            <span className="ml-1 text-cyan-300 font-medium">{sortNewestFirst ? 'Newest' : 'Oldest'}</span>
+            <i className={`fas fa-chevron-${sortNewestFirst ? 'up' : 'down'} text-cyan-400 ml-1.5`}></i>
+          </div>
+        </button>
+        
+        <button 
           className="bg-gray-900 hover:bg-gray-800 text-gray-300 border border-gray-800 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
           onClick={handleExport}
         >
@@ -130,13 +150,14 @@ const NetworkLogs = ({ logs }) => {
                 <th className="text-left p-4 font-medium text-gray-400">Port</th>
                 <th className="text-left p-4 font-medium text-gray-400">Packets</th>
                 <th className="text-left p-4 font-medium text-gray-400">Bytes</th>
+                <th className="text-left p-4 font-medium text-gray-400">Flags</th>
                 <th className="text-left p-4 font-medium text-gray-400">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-gray-400 py-12">
+                  <td colSpan="9" className="text-center text-gray-400 py-12">
                     <div className="flex flex-col items-center">
                       <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
                         <i className="fas fa-search text-2xl text-gray-600"></i>
@@ -147,7 +168,7 @@ const NetworkLogs = ({ logs }) => {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log, idx) => (
+                (sortNewestFirst ? [...filteredLogs].reverse() : filteredLogs).map((log, idx) => (
                   <tr key={idx} className="border-t border-gray-800 hover:bg-gray-800/50 transition-colors">
                     <td className="p-4 text-sm">
                       {log.received_at ? new Date(log.received_at).toLocaleString() : "N/A"}
@@ -170,23 +191,37 @@ const NetworkLogs = ({ logs }) => {
                     <td className="p-4 text-sm">{log["Destination Port"] || "N/A"}</td>
                     <td className="p-4 text-sm">{log.Packets || "N/A"}</td>
                     <td className="p-4 text-sm">{log["Bytes Transferred"]}</td>
-                    <td className="p-4">
-                      <div className="flex space-x-2">
+                    <td className="p-4 text-sm pr-2">
+                      {log.Flags ? (
+                        <div className="flex flex-wrap gap-1">
+                          {log.Flags.split(',').map((flag, i) => (
+                            <span key={i} className="px-1.5 py-0.5 bg-gray-800 text-xs rounded-sm text-yellow-400 border border-yellow-900/50">
+                              {flag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : "N/A"}
+                    </td>
+                    <td className="p-4 pl-2">
+                      <div className="flex space-x-3 justify-center">
                         <button 
                           className="text-gray-400 hover:text-cyan-400 transition-colors"
                           onClick={() => showInfoToast(`Log details: ${log["Source IP"]} → ${log["Destination IP"]}`)}
+                          title="View details"
                         >
                           <i className="fas fa-info-circle"></i>
                         </button>
                         <button 
                           className="text-gray-400 hover:text-yellow-400 transition-colors"
                           onClick={() => handleFlagLog(log)}
+                          title="Flag for review"
                         >
                           <i className="fas fa-flag"></i>
                         </button>
                         <button 
                           className="text-gray-400 hover:text-red-400 transition-colors"
                           onClick={() => handleBlockIP(log["Source IP"])}
+                          title="Block IP"
                         >
                           <i className="fas fa-ban"></i>
                         </button>
