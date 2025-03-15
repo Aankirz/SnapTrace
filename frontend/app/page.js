@@ -8,12 +8,13 @@ import Dashboard from './components/Dashboard';
 import NetworkLogs from './components/NetworkLogs';
 import SetupGuide from './components/SetupGuide';
 import ThreatDetection from './components/ThreatDetection';
+import DemoTest from './components/DemoTest';
 
 // Import custom hook
 import useLogData from './hooks/useLogData';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("setup");
   const { logs, loading, error, fetchLogs } = useLogData();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
@@ -42,6 +43,7 @@ export default function Home() {
           {activeTab === "logs" && <NetworkLogs logs={logs} />}
           {activeTab === "threats" && <ThreatDetection />}
           {activeTab === "setup" && <SetupGuide />}
+          {activeTab === "demotest" && <DemoTest />}
         </div>
         
         {/* Footer */}

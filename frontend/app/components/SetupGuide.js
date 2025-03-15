@@ -17,36 +17,31 @@ const SetupGuide = () => {
     },
     {
       id: 2,
-      title: "Clone the TraceAgent Repository",
+      title: "Clone TraceAgent Repo",
       description: "Get the latest version of the TraceAgent from our GitHub repository.",
       commands: [
-        { platform: "All", command: "git clone https://github.com/YourOrg/TraceAgent.git" },
+        { platform: "All", command: "git clone https://github.com/Aankirz/TraceAgent.git" },
         { platform: "All", command: "cd TraceAgent" }
       ]
     },
     {
       id: 3,
       title: "Install Dependencies",
-      description: "Install the required Python packages for TraceAgent.",
+      description: "Create a virtual environment and install the required Python packages for TraceAgent.",
       commands: [
+        { platform: "macOS/Linux", command: "python3 -m venv venv" },
+        { platform: "Windows", command: "python -m venv venv" },
+        { platform: "macOS/Linux", command: "source venv/bin/activate" },
+        { platform: "Windows", command: "venv\\Scripts\\activate" },
         { platform: "All", command: "pip install -r requirements.txt" }
       ]
     },
     {
       id: 4,
-      title: "Configure the Agent",
-      description: "Set up the configuration for your environment.",
-      commands: [
-        { platform: "All", command: "cp config.example.json config.json" },
-        { platform: "All", command: "nano config.json  # Edit with your settings" }
-      ]
-    },
-    {
-      id: 5,
       title: "Run the Agent",
       description: "Start the TraceAgent with administrative privileges to capture network traffic.",
       commands: [
-        { platform: "Unix/Linux/macOS", command: "sudo python3 logcollector.py" },
+        { platform: "Unix/Linux/macOS", command: "sudo python logcollector.py" },
         { platform: "Windows", command: "python logcollector.py  # Run as Administrator" }
       ]
     }

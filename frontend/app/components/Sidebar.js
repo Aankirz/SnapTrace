@@ -2,10 +2,11 @@ import React from 'react';
 
 const Sidebar = ({ activeTab, setActiveTab, collapsed, setCollapsed }) => {
   const menuItems = [
+    { id: "setup", icon: "fa-cogs", label: "Setup Guide" },
     { id: "dashboard", icon: "fa-chart-line", label: "Dashboard" },
     { id: "logs", icon: "fa-shield-alt", label: "Security Logs" },
     { id: "threats", icon: "fa-exclamation-triangle", label: "Threat Detection" },
-    { id: "setup", icon: "fa-cogs", label: "Setup Guide" },
+    { id: "demotest", icon: "fa-vial", label: "Demo Test" },
     { id: "settings", icon: "fa-sliders-h", label: "Settings" },
   ];
 
