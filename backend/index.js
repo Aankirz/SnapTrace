@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const amqp = require('amqplib');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
@@ -16,9 +17,9 @@ let channel;
 // 1) Connect to RabbitMQ
 async function connectRabbitMQ() {
   try {
-    const connection = await amqp.connect('amqp://localhost');
+    const connection = await amqp.connect(process.env.RABBITMQ_URL);
     channel = await connection.createChannel();
-    await channel.assertQueue('security_logs'); // create or verify 'logs' queue
+    await channel.assertQueue('snaplog'); // create or verify 'logs' queue
     console.log("Connected to RabbitMQ, queue 'logs' is ready.");
   } catch (err) {
     console.error("Failed to connect to RabbitMQ:", err);
@@ -54,8 +55,8 @@ app.post('/api/sessions', (req, res) => {
 
       // 2b) Push each session to RabbitMQ
       if (channel) {
-        channel.sendToQueue('logs', Buffer.from(JSON.stringify(enrichedLog)));
-        console.log("Log pushed to RabbitMQ queue 'logs':", enrichedLog);
+        channel.sendToQueue('snaplog', Buffer.from(JSON.stringify(enrichedLog)));
+        console.log("Log pushed to RabbitMQ queue 'snaplog':", enrichedLog);
       } else {
         console.warn("No RabbitMQ channel available, could not send to queue.");
       }
