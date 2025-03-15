@@ -8,6 +8,7 @@ const DemoTest = () => {
   const [uploadStatus, setUploadStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState([]);
+  const [transformedLogs, setTransformedLogs] = useState([]);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -15,6 +16,8 @@ const DemoTest = () => {
       setFile(selectedFile);
       setUploadStatus('');
       setProgress(0);
+      setLogs([]);
+      setTransformedLogs([]);
     }
   };
 
@@ -29,6 +32,25 @@ const DemoTest = () => {
           reject(error);
         }
       });
+    });
+  };
+
+  // Transform data to match the required format
+  const transformData = (data) => {
+    return data.map(item => {
+      // Create a properly formatted object
+      return {
+        'Source IP': item['src_ip'] || item['Source IP'] || item['source_ip'] || '',
+        'Destination IP': item['dst_ip'] || item['Destination IP'] || item['destination_ip'] || '',
+        'Protocol': item['protocol'] || item['Protocol'] || '',
+        'Source Port': item['src_port'] || item['Source Port'] || item['source_port'] || '',
+        'Destination Port': item['dst_port'] || item['Destination Port'] || item['destination_port'] || '',
+        'Packets': parseInt(item['packets'] || item['Packets'] || '0', 10),
+        'Bytes Transferred': item['bytes_transferred'] || item['Bytes Transferred'] || '0.0M',
+        'Flags': item['flags'] || item['Flags'] || '',
+        'Duration': parseFloat(item['duration'] || item['Duration'] || '0'),
+        'Class': item['class'] || item['Class'] || 'Unknown'
+      };
     });
   };
 
@@ -67,8 +89,12 @@ const DemoTest = () => {
       const parsedData = await processCSV(file);
       setLogs(parsedData);
       
+      // Transform data to match required format
+      const formattedData = transformData(parsedData);
+      setTransformedLogs(formattedData);
+      
       // Limit to max 30 logs
-      const limitedData = parsedData.slice(0, 30);
+      const limitedData = formattedData.slice(0, 30);
       setUploadStatus(`Parsed ${limitedData.length} logs (max 30). Sending to API...`);
       
       // Send in batches of 5
@@ -148,9 +174,20 @@ const DemoTest = () => {
         </div>
       )}
       
-      {logs.length > 0 && (
+      {transformedLogs.length > 0 && (
         <div>
-          <h3 className="text-xl font-semibold mb-3 text-cyan-400">Processed Logs</h3>
+          <h3 className="text-xl font-semibold mb-3 text-cyan-400">Processed Logs (Transformed Format)</h3>
+          <div className="bg-gray-800 p-4 rounded-lg max-h-96 overflow-auto">
+            <pre className="text-gray-300 text-sm">
+              {JSON.stringify(transformedLogs.slice(0, 30), null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+      
+      {logs.length > 0 && transformedLogs.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-3 text-cyan-400">Original CSV Data</h3>
           <div className="bg-gray-800 p-4 rounded-lg max-h-96 overflow-auto">
             <pre className="text-gray-300 text-sm">
               {JSON.stringify(logs.slice(0, 30), null, 2)}
