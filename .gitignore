@@ -1,6 +1,6 @@
 # Node modules
-threat-detection/node_modules/
-incident-response/node_modules/
+node_modules/
+**/node_modules/
 
 # Logs
 npm-debug.log*
