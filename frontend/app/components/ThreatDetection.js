@@ -1,3 +1,4 @@
+'use client';
 import React from 'react';
 import useSecurityData from '../hooks/useSecurityData';
 import useGraphData from '../hooks/useGraphData';
@@ -5,13 +6,13 @@ import NetworkGraph from './NetworkGraph';
 
 const ThreatDetection = () => {
   const { securityData, loading: securityLoading, error: securityError, fetchSecurityData } = useSecurityData();
-  const { graphData, loading: graphLoading, error: graphError, fetchGraphData } = useGraphData();
+  const { graphData, loading: graphLoading, error: graphError, fetchGraphData, useFallback } = useGraphData();
 
   // Combined loading state
   const loading = securityLoading || graphLoading;
   
   // Combined error state (prioritize security data error)
-  const error = securityError || graphError;
+  const error = securityError || (graphError && !useFallback ? graphError : null);
 
   if (loading) {
     return (
@@ -70,6 +71,22 @@ const ThreatDetection = () => {
           <i className="fas fa-sync-alt mr-2"></i> Refresh
         </button>
       </div>
+
+      {/* Fallback notification */}
+      {useFallback && graphData && (
+        <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-4 text-amber-200 mb-4">
+          <div className="flex items-start">
+            <i className="fas fa-info-circle text-amber-400 mt-1 mr-3 text-lg"></i>
+            <div>
+              <h3 className="font-semibold">Using Demo Network Data</h3>
+              <p className="mt-1">
+                We&apos;re currently displaying demo network graph data because we couldn&apos;t connect to the live data source.
+                The visualization below is based on sample data and may not reflect the current network state.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Network Graph Visualization */}
       <NetworkGraph graphData={graphData} />
