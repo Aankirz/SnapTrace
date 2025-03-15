@@ -37,21 +37,34 @@ const DemoTest = () => {
     });
   };
 
-  // Transform data to match the required format
+  // Transform data to match the required format based on the actual CSV structure
   const transformData = (data) => {
     return data.map(item => {
+      // Clean and parse numeric values
+      const packets = parseInt(item['Packets'] ? item['Packets'].trim() : '0', 10);
+      
+      // Parse bytes value (e.g., "2.1 M" to "2.1M")
+      let bytesTransferred = '0.0M';
+      if (item['Bytes']) {
+        const bytesStr = item['Bytes'].trim();
+        bytesTransferred = bytesStr.replace(/\s+/g, '');
+      }
+      
+      // Parse duration to float
+      const duration = parseFloat(item['Duration'] || '0');
+      
       // Create a properly formatted object
       return {
-        'Source IP': item['src_ip'] || item['Source IP'] || item['source_ip'] || '',
-        'Destination IP': item['dst_ip'] || item['Destination IP'] || item['destination_ip'] || '',
-        'Protocol': item['protocol'] || item['Protocol'] || '',
-        'Source Port': item['src_port'] || item['Source Port'] || item['source_port'] || '',
-        'Destination Port': item['dst_port'] || item['Destination Port'] || item['destination_port'] || '',
-        'Packets': parseInt(item['packets'] || item['Packets'] || '0', 10),
-        'Bytes Transferred': item['bytes_transferred'] || item['Bytes Transferred'] || '0.0M',
-        'Flags': item['flags'] || item['Flags'] || '',
-        'Duration': parseFloat(item['duration'] || item['Duration'] || '0'),
-        'Class': item['class'] || item['Class'] || 'Unknown'
+        'Source IP': item['Src IP Addr'] || '',
+        'Destination IP': item['Dst IP Addr'] || '',
+        'Protocol': (item['Proto'] || '').trim(),
+        'Source Port': item['Src Pt'] || '',
+        'Destination Port': item['Dst Pt'] || '',
+        'Packets': packets,
+        'Bytes Transferred': bytesTransferred,
+        'Flags': item['Flags'] || '',
+        'Duration': duration,
+        'Class': item['class'] || 'Unknown'
       };
     });
   };
