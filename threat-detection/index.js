@@ -65,7 +65,7 @@ async function processMessage(message, channel) {
                 `;
 
                 // **STEP 3: Send Data to LLM API**
-                const response = await axios.post('https://3c88-2409-40f2-1028-66b8-f88a-8185-2803-458a.ngrok-free.app/generate', { log_data: formattedLogData });
+                const response = await axios.post('https://9167-2409-40e2-192-4fd8-1d4e-37c4-7c94-a442.ngrok-free.app/generate', { log_data: formattedLogData });
                 const rawOutput = response.data.response;
 
                 // ✅ **STEP 4: Parse LLM Output**
